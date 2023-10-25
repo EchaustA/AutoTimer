@@ -3,8 +3,7 @@ This file gives the linux support for this repo
 '''
 import sys
 import os
-import subprocess
-import re
+import subprocess;import re
 
 
 def get_active_window_raw():
