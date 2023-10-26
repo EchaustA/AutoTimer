@@ -1,0 +1,1 @@
+store_activities_path = "C:/Users/andrz/Desktop/PC activity tracker/"

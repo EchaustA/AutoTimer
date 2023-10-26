@@ -1,13 +1,8 @@
 from __future__ import print_function
 import time
-import os
-#from os import system
-
-abspath = os.path.abspath(__file__)
-dname = os.path.dirname(abspath)
-os.chdir(dname)
-
+from os import system
 from activity import *
+import constants as cnst
 import json
 import datetime
 import sys
@@ -19,6 +14,10 @@ elif sys.platform in ['Mac', 'darwin', 'os2', 'os2emx']:
     from Foundation import *
 elif sys.platform in ['linux', 'linux2']:
         import linux as l
+
+# New libs
+from win32process import GetWindowThreadProcessId
+from pywinauto.application import Application
 
 active_window_name = ""
 activity_name = ""
@@ -47,30 +46,55 @@ def get_active_window():
         print(sys.version)
     return _active_window_name
 
-
-"""
-Dodanie innych przeglądarek
-# from win32process import GetWindowThreadProcessId
-# from pywinauto.application import Application
-# time.sleep(3)
-# window = win32gui.GetForegroundWindow()
-# tid, pid = GetWindowThreadProcessId(window)
-# app = Application(backend="uia").connect(process=pid, time_out=10)
-# dlg = app.top_window()
-# title = "Address and search bar"
-# url = dlg.child_window(title=title, control_type="Edit").get_value()
-# print(url)
-"""
-
-# window = win32gui.GetForegroundWindow()
-# _active_window_name = win32gui.GetWindowText(window)
+# Dodanie innych przeglądarek
+def get_edge_url():
+    """
+    For chrome run in app mode.
+    """
+    if sys.platform in ['Windows', 'win32', 'cygwin']:
+    #time.sleep(3)
+        window = win32gui.GetForegroundWindow()
+        tid, pid = GetWindowThreadProcessId(window)
+        #app = Application(backend="uia").connect(title_re=".*Edge*", found_index=0)
+        app = Application(backend="uia").connect(process=pid, time_out=10)
+        dlg = app.top_window()
+        title = "App bar"
+        #url = dlg.child_window(title=title, control_type="Edit").get_value()
+        wrapper = dlg.child_window(title=title, control_type="ToolBar")
+        url = wrapper.descendants(control_type='Edit')[0].get_value()
+        return url
+    else:
+        print("sys.platform={platform} is not supported."
+              .format(platform=sys.platform))
+        print(sys.version)
 
 def get_chrome_url():
+    """
+    For chrome run in app mode.
+    """
     if sys.platform in ['Windows', 'win32', 'cygwin']:
+        #time.sleep(3)
+        window = win32gui.GetForegroundWindow()
+        tid, pid = GetWindowThreadProcessId(window)
+        app = Application(backend="uia").connect(process=pid, time_out=10)
+        dlg = app.top_window()
+        title = "Address and search bar"
+        url = dlg.child_window(title=title, control_type="Edit").get_value()
+        return url
+    else:
+        print("sys.platform={platform} is not supported."
+              .format(platform=sys.platform))
+        print(sys.version)
+
+def get_brave_url():
+    if sys.platform in ['Windows', 'win32', 'cygwin']:
+        time.sleep(3)
         window = win32gui.GetForegroundWindow()
         chromeControl = auto.ControlFromHandle(window)
         edit = chromeControl.EditControl()
-        return 'https://' + edit.GetValuePattern().Value
+        ret = edit.GetValuePattern().Value
+        ret = 'https://' + ret if 'https' not in ret else ret
+        return ret
     elif sys.platform in ['Mac', 'darwin', 'os2', 'os2emx']:
         textOfMyScript = """tell app "google chrome" to get the url of the active tab of window 1"""
         s = NSAppleScript.initWithSource_(
@@ -94,8 +118,14 @@ try:
         previous_site = ""
         if sys.platform not in ['linux', 'linux2']:
             new_window_name = get_active_window()
-            if 'Google Chrome' in new_window_name:
+            if 'google chrome' in new_window_name.lower():
                 new_window_name = url_to_name(get_chrome_url())
+            elif 'microsoft' in new_window_name.lower() and 'edge' in new_window_name.lower():
+                new_window_name = url_to_name(get_edge_url())
+            elif 'brave' in new_window_name.lower():
+                new_window_name = url_to_name(get_brave_url())
+            elif 'opera' in new_window_name.lower():
+                new_window_name = 'Opera' # TODO
         if sys.platform in ['linux', 'linux2']:
             new_window_name = l.get_active_window_x()
             if 'Google Chrome' in new_window_name:
@@ -120,7 +150,7 @@ try:
                 if not exists:
                     activity = Activity(activity_name, [time_entry])
                     activeList.activities.append(activity)
-                with open('activities.json', 'w') as json_file:
+                with open(cnst.store_activities_path + 'activities.json', 'w') as json_file:
                     json.dump(activeList.serialize(), json_file,
                               indent=4, sort_keys=True)
                     start_time = datetime.datetime.now()
@@ -130,5 +160,5 @@ try:
         time.sleep(1)
     
 except KeyboardInterrupt:
-    with open('activities.json', 'w') as json_file:
+    with open(cnst.store_activities_path + 'activities.json', 'w') as json_file:
         json.dump(activeList.serialize(), json_file, indent=4, sort_keys=True)
